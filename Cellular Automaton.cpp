@@ -12,10 +12,22 @@ UINT_PTR timerId = 0;
 int period = 100;        // Milliseconds
 char* previousRow = nullptr;
 char* currentRow = nullptr;
-int rowWidth = 0;
+int width = 0;
+int height = 0;
 
 int yPos = 0;
 
+/*
+ * Interesting rules:
+ *   - 18, random
+ *   - 22, random
+ *   - 30, point
+ *   - 41, random
+ *   - 45, point, random
+ *   - 54, random
+ *   - 60, random
+ *   - 75, point, random
+ */
 char rules[8] = {
     /* 000 */ 0,
     /* 001 */ 1,
@@ -43,10 +55,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 case ID_FASTER:
                     period -= 10;
                     if (period < 10) { period = 10; }
+                    SetTimer(mainWindow, timerId, period, NULL);
                     break;
                 case ID_SLOWER:
                     period += 10;
                     if (period > 1000) { period = 1000; }
+                    SetTimer(mainWindow, timerId, period, NULL);
                     break;
                 case ID_SAVE:
                     break;
@@ -60,7 +74,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             break;
         case WM_PAINT:
             hdc = BeginPaint(hWnd, &ps);
-            for (int i = 0; i < rowWidth; i++) {
+            for (int i = 0; i < width; i++) {
                 RECT rect;
                 rect.left = i;
                 rect.top = yPos;
@@ -78,18 +92,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
     return 0;
 }
 
-void initSimulation(int width) {
-    rowWidth = width;
-    previousRow = (char*)calloc(rowWidth + 2, sizeof(char));   // Extra space at either end
-    currentRow = (char*)calloc(rowWidth, sizeof(char));
+void setRule(int num) {
+    //for (int i = 0; i < 8; i++) {
+    //  set rules[i] if that bit in num is set
+    //}
+}
 
-    currentRow[rowWidth / 2] = 1;
+void initSimulation() {
+    previousRow = (char*)calloc(width + 2, sizeof(char));   // Extra space at either end
+    currentRow = (char*)calloc(width, sizeof(char));
+
+    currentRow[width / 2] = 1;
 }
 
 void doSimulationStep() {
-    memcpy_s(previousRow + 1, rowWidth, currentRow, rowWidth);
+    memcpy_s(previousRow + 1, width, currentRow, width);
 
-    for (int i = 0; i < rowWidth; i++) {
+    for (int i = 0; i < width; i++) {
         int ruleNum = (previousRow[i] << 2) + (previousRow[i + 1] << 1) + previousRow[i + 2];
         currentRow[i] = rules[ruleNum];
     }
@@ -127,19 +146,18 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     wcex.hIconSm       = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
     RegisterClassEx(&wcex);
 
-    RECT desktopArea;
-    SystemParametersInfo(SPI_GETWORKAREA, 0, &desktopArea, 0);
-    int width = desktopArea.right - desktopArea.left;
-    int height = desktopArea.bottom - desktopArea.top;
-
-    initSimulation(width);
-
-    mainWindow = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPED | WS_CAPTION | WS_MINIMIZE | WS_SYSMENU,
-                            desktopArea.left, desktopArea.top, width, height,
+    mainWindow = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+                            CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                             NULL, NULL, hInstance, NULL);
-    ShowWindow(mainWindow, nCmdShow);
+    ShowWindow(mainWindow, SW_SHOWMAXIMIZED);
     UpdateWindow(mainWindow);
 
+    RECT rect;
+    GetClientRect(mainWindow, &rect);
+    width = rect.right - rect.left;
+    height = rect.bottom - rect.top;
+
+    initSimulation();
     timerId = SetTimer(mainWindow, 0, period, NULL);
 
     hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_WINDOW));
