@@ -15,7 +15,6 @@ char* currentRow = nullptr;
 int width = 0;
 int height = 0;
 
-int yPos = 0;
 
 /*
  * Interesting rules:
@@ -70,16 +69,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             break;
         case WM_TIMER:
             doSimulationStep();
-            InvalidateRect(mainWindow, NULL, FALSE);
+            ScrollWindowEx(mainWindow, 0, -1, NULL, NULL, NULL, NULL, SW_INVALIDATE);
             break;
         case WM_PAINT:
             hdc = BeginPaint(hWnd, &ps);
             for (int i = 0; i < width; i++) {
                 RECT rect;
                 rect.left = i;
-                rect.top = yPos;
+                rect.top = height - 1;
                 rect.right = i + 1;
-                rect.bottom = yPos + 1;
+                rect.bottom = height;
                 FillRect(hdc, &rect, (HBRUSH)((currentRow[i] == 1 ? COLOR_WINDOWTEXT : COLOR_WINDOW) + 1));
             }
             break;
@@ -112,8 +111,6 @@ void doSimulationStep() {
         int ruleNum = (previousRow[i] << 2) + (previousRow[i + 1] << 1) + previousRow[i + 2];
         currentRow[i] = rules[ruleNum];
     }
-
-    yPos++;
 }
 
 
