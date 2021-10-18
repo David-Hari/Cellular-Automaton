@@ -45,7 +45,6 @@ IDC_WINDOW ACCELERATORS
 BEGIN
     VK_UP,          ID_FASTER,              VIRTKEY, NOINVERT
     VK_DOWN,        ID_SLOWER,              VIRTKEY, NOINVERT
-    "S",            ID_SAVE,                ASCII,  NOINVERT
 END
 
 
@@ -87,7 +86,7 @@ END
 
 STRINGTABLE
 BEGIN
-    IDS_APP_TITLE           "Cellular Automaton       -  Up: faster,  Down: slower,  S: save image"
+    IDS_APP_TITLE           "Cellular Automaton       -  Up: faster,  Down: slower"
     IDC_WINDOW              "WINDOW"
 END
 

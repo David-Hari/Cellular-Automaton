@@ -10,7 +10,6 @@
 #define IDC_WINDOW                      106
 #define ID_FASTER                       107
 #define ID_SLOWER                       108
-#define ID_SAVE                         109
 #define IDR_MAINFRAME                   128
 #define IDC_STATIC                      -1
 
