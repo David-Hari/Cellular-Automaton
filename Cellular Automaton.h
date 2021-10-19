@@ -19,19 +19,24 @@ char* currentRow = nullptr;
 
 /* Buffer bitmap */
 HBITMAP bufferBitmap = nullptr;
-void makeBitmapBuffer();
+int bitmapHeight = 1;
+void makeBitmapBuffer(int height);
 
 /* Update timer */
-UINT_PTR timerId = 0;
-unsigned int period = 50;    // Milliseconds
-void increasePeriod();
-void decreasePeriod();
+UINT_PTR timerId = 1;
+unsigned int speed = 10;    // Updates per second
+int speedIndex = 1;
+void increaseSpeed();
+void decreaseSpeed();
 void setUpdateTimer();
 
 /* Simulation functions */
+int ruleNumber;
 void setRule(int num);
 void initSimulation();
-void doSimulationStep();
+void doSimulationStep(int yPos);
+
+void updateWindowTitle();
 
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);

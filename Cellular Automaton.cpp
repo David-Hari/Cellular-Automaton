@@ -1,10 +1,12 @@
 #include "stdafx.h"
+#include <string>
+#include <sstream>
 #include "Cellular Automaton.h"
 
 #define MAX_LOADSTRING 200
 
 HINSTANCE hInst;                          // current instance
-TCHAR szTitle[MAX_LOADSTRING];            // The title bar text
+TCHAR originalTitle[MAX_LOADSTRING];      // The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];      // the main window class name
 HDC memoryContext = nullptr;
 
@@ -21,45 +23,78 @@ HDC memoryContext = nullptr;
  *   - 75, point, random
  */
 char rules[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+int speeds[] = { 1, 10, 50, 100, 500, 1000, 2000 };
+const int NUM_SPEEDS = (sizeof(speeds) / sizeof((speeds)[0]));
 
 
 
-void makeBitmapBuffer() {
-    // Destroy the old one if it exists
+void makeBitmapBuffer(int height) {
+    HBITMAP newBuffer = CreateBitmap(width, height, 1, 1, NULL);
+    SelectObject(memoryContext, newBuffer);
+
+    // If there is an existing bitmap, copy it into the new one then destroy it.
     if (!bufferBitmap) {
+        HDC copyDC = CreateCompatibleDC(memoryContext);
+        SelectObject(copyDC, bufferBitmap);
+        BitBlt(memoryContext, 0, 0, width, bitmapHeight, copyDC, 0, 0, SRCCOPY);
         DeleteObject(bufferBitmap);
     }
 
-    bufferBitmap = CreateBitmap(width, 1, 1, 1, NULL);
-    SelectObject(memoryContext, bufferBitmap);
+    bufferBitmap = newBuffer;
+    bitmapHeight = height;
 }
 
 
-void increasePeriod() {
-    period += 10;
-    if (period > 1000) { period = 1000; }
-    setUpdateTimer();
+void increaseSpeed() {
+    speedIndex++;
+    if (speedIndex >= NUM_SPEEDS) {
+        speedIndex = NUM_SPEEDS - 1;
+    }
+    else {
+        speed = speeds[speedIndex];
+        setUpdateTimer();
+    }
 }
 
-void decreasePeriod() {
-    period -= 10;
-    if (period < 10) { period = 10; }
-    setUpdateTimer();
+void decreaseSpeed() {
+    speedIndex--;
+    if (speedIndex < 0) {
+        speedIndex = 0;
+    }
+    else {
+        speed = speeds[speedIndex];
+        setUpdateTimer();
+    }
 }
 
 void setUpdateTimer() {
-    SetTimer(mainWindow, timerId, period, NULL);
-    // TODO: Maybe change buffer bitmap height if simulation update is going to be
-    // faster than one line per paint update.
+    if (speed > 100) {
+        makeBitmapBuffer(speed / 50);              // Increase height of buffer bitmap for fast updates
+        SetTimer(mainWindow, timerId, 10, NULL);   // Timer can not be less than 10ms (USER_TIMER_MINIMUM)
+    }
+    else {
+        makeBitmapBuffer(1);
+        SetTimer(mainWindow, timerId, 1000 / speed, NULL);
+    }
+    updateWindowTitle();
+}
+
+void updateWindowTitle() {
+    std::wstring originalTitleStr(originalTitle);
+    std::wostringstream stream;
+    stream << originalTitleStr << L"           Rule " << ruleNumber << "    " << speed << " updates per second";
+    SetWindowText(mainWindow, stream.str().c_str());
 }
 
 
 void setRule(int num) {
+    ruleNumber = num;
     unsigned int temp = num;
     for (int i = 0; i < 8; i++) {
         rules[i] = temp & 1;
         temp = temp >> 1;
     }
+    updateWindowTitle();
 }
 
 void initSimulation() {
@@ -69,13 +104,13 @@ void initSimulation() {
     currentRow[width / 2] = 1;
 }
 
-void doSimulationStep() {
+void doSimulationStep(int yPos) {
     memcpy_s(previousRow + 1, width, currentRow, width);
 
     for (int i = 0; i < width; i++) {
         int ruleNum = (previousRow[i] << 2) + (previousRow[i + 1] << 1) + previousRow[i + 2];
         currentRow[i] = rules[ruleNum];
-        SetPixel(memoryContext, i, 0, (COLORREF)(currentRow[i] * 0xFFFFFF));
+        SetPixel(memoryContext, i, yPos, (COLORREF)(currentRow[i] * 0xFFFFFF));
     }
 }
 
@@ -93,24 +128,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         // Parse the menu selections:
         switch (wmId) {
         case ID_FASTER:
-            decreasePeriod();
+            increaseSpeed();
             break;
         case ID_SLOWER:
-            increasePeriod();
+            decreaseSpeed();
             break;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
         break;
     case WM_TIMER:
-        doSimulationStep();
-        ScrollWindowEx(mainWindow, 0, -1, NULL, NULL, NULL, NULL, SW_INVALIDATE);
+        for (int i = 0; i < bitmapHeight; i++) {
+            doSimulationStep(i);
+        }
+        ScrollWindowEx(mainWindow, 0, -bitmapHeight, NULL, NULL, NULL, NULL, SW_INVALIDATE);
         break;
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
         SetBkColor(hdc, colour1);
         SetTextColor(hdc, colour0);
-        BitBlt(hdc, 0, height - 1, width, 1, memoryContext, 0, 0, SRCCOPY);
+        BitBlt(hdc, 0, height - bitmapHeight, width, bitmapHeight, memoryContext, 0, 0, SRCCOPY);
         EndPaint(hWnd, &ps);
         break;
     case WM_DESTROY:
@@ -133,7 +170,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     WNDCLASSEX wcex;
 
     // Initialize global strings
-    LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
+    LoadString(hInstance, IDS_APP_TITLE, originalTitle, MAX_LOADSTRING);
     LoadString(hInstance, IDC_WINDOW, szWindowClass, MAX_LOADSTRING);
 
     // Register window class
@@ -151,7 +188,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     wcex.hIconSm       = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
     RegisterClassEx(&wcex);
 
-    mainWindow = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+    mainWindow = CreateWindow(szWindowClass, originalTitle, WS_OVERLAPPEDWINDOW,
                             CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                             NULL, NULL, hInstance, NULL);
     HDC windowDC = GetWindowDC(mainWindow);
@@ -167,9 +204,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     height = rect.bottom - rect.top;
 
     setRule(30);
-    makeBitmapBuffer();
+    makeBitmapBuffer(1);
     initSimulation();
-    timerId = SetTimer(mainWindow, 0, period, NULL);
+    SetTimer(mainWindow, timerId, 1000 / speed, NULL);
 
     hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_WINDOW));
 
