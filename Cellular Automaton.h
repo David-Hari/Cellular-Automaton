@@ -18,8 +18,9 @@ char* previousRow = nullptr;
 char* currentRow = nullptr;
 
 /* Buffer bitmap */
-HBITMAP bufferBitmap = nullptr;
+HBITMAP bufferBitmap;
 int bitmapHeight = 1;
+int bitmapY = 0;
 void makeBitmapBuffer(int height);
 
 /* Update timer */
@@ -34,7 +35,7 @@ void setUpdateTimer();
 int ruleNumber;
 void setRule(int num);
 void initSimulation();
-void doSimulationStep(int yPos);
+void doSimulationStep();
 
 void updateWindowTitle();
 

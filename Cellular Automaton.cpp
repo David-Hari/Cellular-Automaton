@@ -8,7 +8,7 @@
 HINSTANCE hInst;                          // current instance
 TCHAR originalTitle[MAX_LOADSTRING];      // The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];      // the main window class name
-HDC memoryContext = nullptr;
+HDC memoryContext;
 
 
 /*
@@ -30,17 +30,18 @@ const int NUM_SPEEDS = (sizeof(speeds) / sizeof((speeds)[0]));
 
 void makeBitmapBuffer(int height) {
     HBITMAP newBuffer = CreateBitmap(width, height, 1, 1, NULL);
-    SelectObject(memoryContext, newBuffer);
+    HDC newDC = CreateCompatibleDC(memoryContext);
+    SelectObject(newDC, newBuffer);
 
     // If there is an existing bitmap, copy it into the new one then destroy it.
     if (!bufferBitmap) {
-        HDC copyDC = CreateCompatibleDC(memoryContext);
-        SelectObject(copyDC, bufferBitmap);
-        BitBlt(memoryContext, 0, 0, width, bitmapHeight, copyDC, 0, 0, SRCCOPY);
+        BitBlt(newDC, 0, 0, width, min(height, bitmapHeight), memoryContext, 0, 0, SRCCOPY);
         DeleteObject(bufferBitmap);
+        DeleteDC(memoryContext);
     }
 
     bufferBitmap = newBuffer;
+    memoryContext = newDC;
     bitmapHeight = height;
 }
 
@@ -104,14 +105,15 @@ void initSimulation() {
     currentRow[width / 2] = 1;
 }
 
-void doSimulationStep(int yPos) {
+void doSimulationStep() {
     memcpy_s(previousRow + 1, width, currentRow, width);
 
     for (int i = 0; i < width; i++) {
         int ruleNum = (previousRow[i] << 2) + (previousRow[i + 1] << 1) + previousRow[i + 2];
         currentRow[i] = rules[ruleNum];
-        SetPixel(memoryContext, i, yPos, (COLORREF)(currentRow[i] * 0xFFFFFF));
+        SetPixel(memoryContext, i, bitmapY, (COLORREF)(currentRow[i] * 0xFFFFFF));
     }
+    bitmapY++;
 }
 
 
@@ -138,10 +140,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         }
         break;
     case WM_TIMER:
-        for (int i = 0; i < bitmapHeight; i++) {
-            doSimulationStep(i);
+        while (bitmapY < bitmapHeight) {
+            doSimulationStep();
         }
         ScrollWindowEx(mainWindow, 0, -bitmapHeight, NULL, NULL, NULL, NULL, SW_INVALIDATE);
+        bitmapY = 0;
         break;
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
