@@ -1,4 +1,6 @@
 #include "stdafx.h"
+#include <stdlib.h>
+#include <time.h>
 #include <string>
 #include <sstream>
 #include "Cellular Automaton.h"
@@ -13,14 +15,15 @@ HDC memoryContext;
 
 /*
  * Interesting rules:
- *   - 18, random
- *   - 22, random
- *   - 30, point
- *   - 41, random
- *   - 45, point, random
- *   - 54, random
- *   - 60, random
- *   - 75, point, random
+ *   - 18,  random
+ *   - 22,  random
+ *   - 30,  point
+ *   - 41,  random
+ *   - 45,  point, random
+ *   - 54,  random
+ *   - 60,  random
+ *   - 75,  point, random
+ *   - 110, point, random
  */
 char rules[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 int speeds[] = { 1, 10, 50, 100, 500, 1000, 2000 };
@@ -35,6 +38,7 @@ void makeBitmapBuffer(int height) {
 
     // If there is an existing bitmap, copy it into the new one then destroy it.
     if (!bufferBitmap) {
+        // TODO: This does not seem to be working.
         BitBlt(newDC, 0, 0, width, min(height, bitmapHeight), memoryContext, 0, 0, SRCCOPY);
         DeleteObject(bufferBitmap);
         DeleteDC(memoryContext);
@@ -98,11 +102,18 @@ void setRule(int num) {
     updateWindowTitle();
 }
 
-void initSimulation() {
+void initSimulation(bool randomStart) {
     previousRow = (char*)calloc(width + 2, sizeof(char));   // Extra space at either end
     currentRow = (char*)calloc(width, sizeof(char));
 
-    currentRow[width / 2] = 1;
+    if (randomStart) {
+        for (int i = 0; i < width; i++) {
+            currentRow[i] = rand() > (RAND_MAX / 2);
+        }
+    }
+    else {
+        currentRow[width / 2] = 1;
+    }
 }
 
 void doSimulationStep() {
@@ -143,14 +154,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         while (bitmapY < bitmapHeight) {
             doSimulationStep();
         }
-        ScrollWindowEx(mainWindow, 0, -bitmapHeight, NULL, NULL, NULL, NULL, SW_INVALIDATE);
-        bitmapY = 0;
+        ScrollWindowEx(mainWindow, 0, -bitmapY, NULL, NULL, NULL, NULL, SW_INVALIDATE);
         break;
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
         SetBkColor(hdc, colour1);
         SetTextColor(hdc, colour0);
-        BitBlt(hdc, 0, height - bitmapHeight, width, bitmapHeight, memoryContext, 0, 0, SRCCOPY);
+        BitBlt(hdc, 0, height - bitmapY, width, bitmapY, memoryContext, 0, 0, SRCCOPY);
+        bitmapY = 0;
         EndPaint(hWnd, &ps);
         break;
     case WM_DESTROY:
@@ -171,6 +182,8 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     MSG msg;
     HACCEL hAccelTable;
     WNDCLASSEX wcex;
+
+    srand((unsigned int)time(NULL));
 
     // Initialize global strings
     LoadString(hInstance, IDS_APP_TITLE, originalTitle, MAX_LOADSTRING);
@@ -208,7 +221,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     setRule(30);
     makeBitmapBuffer(1);
-    initSimulation();
+    initSimulation(false);
     SetTimer(mainWindow, timerId, 1000 / speed, NULL);
 
     hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_WINDOW));

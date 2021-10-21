@@ -34,7 +34,7 @@ void setUpdateTimer();
 /* Simulation functions */
 int ruleNumber;
 void setRule(int num);
-void initSimulation();
+void initSimulation(bool randomStart);
 void doSimulationStep();
 
 void updateWindowTitle();
