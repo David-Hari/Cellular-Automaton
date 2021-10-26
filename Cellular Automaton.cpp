@@ -119,6 +119,10 @@ void initSimulation(bool randomStart) {
 void doSimulationStep() {
     memcpy_s(previousRow + 1, width, currentRow, width);
 
+    // Wrap boundaries, so that left most cell takes from far right neighbour and vice versa
+    previousRow[0] = currentRow[width - 1];
+    previousRow[width + 1] = currentRow[0];
+
     for (int i = 0; i < width; i++) {
         int ruleNum = (previousRow[i] << 2) + (previousRow[i + 1] << 1) + previousRow[i + 2];
         currentRow[i] = rules[ruleNum];
