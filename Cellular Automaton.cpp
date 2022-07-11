@@ -102,7 +102,7 @@ void setRule(int num) {
     updateWindowTitle();
 }
 
-void initSimulation(bool randomStart) {
+void initSimulation(bool randomStart, bool wrap) {
     previousRow = (char*)calloc(width + 2, sizeof(char));   // Extra space at either end
     currentRow = (char*)calloc(width, sizeof(char));
 
@@ -114,14 +114,17 @@ void initSimulation(bool randomStart) {
     else {
         currentRow[width / 2] = 1;
     }
+    wrapBoundaries = wrap;
 }
 
 void doSimulationStep() {
     memcpy_s(previousRow + 1, width, currentRow, width);
 
-    // Wrap boundaries, so that left most cell takes from far right neighbour and vice versa
-    previousRow[0] = currentRow[width - 1];
-    previousRow[width + 1] = currentRow[0];
+    if (wrapBoundaries) {
+        // Wrap boundaries, so that left most cell takes from far right neighbour and vice versa
+        previousRow[0] = currentRow[width - 1];
+        previousRow[width + 1] = currentRow[0];
+    }
 
     for (int i = 0; i < width; i++) {
         int ruleNum = (previousRow[i] << 2) + (previousRow[i + 1] << 1) + previousRow[i + 2];
@@ -225,7 +228,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     setRule(30);
     makeBitmapBuffer(1);
-    initSimulation(false);
+    initSimulation(false, false);
     SetTimer(mainWindow, timerId, 1000 / speed, NULL);
 
     hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_WINDOW));

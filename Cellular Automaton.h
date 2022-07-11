@@ -33,8 +33,9 @@ void setUpdateTimer();
 
 /* Simulation functions */
 int ruleNumber;
+bool wrapBoundaries;
 void setRule(int num);
-void initSimulation(bool randomStart);
+void initSimulation(bool randomStart, bool wrap);
 void doSimulationStep();
 
 void updateWindowTitle();
