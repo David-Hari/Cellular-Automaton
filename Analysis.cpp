@@ -20,6 +20,13 @@ struct Slope {
 	uint8_t byte = 0;
 };
 
+static const int INITIAL_WIDTH = 255;
+static std::vector<uint8_t> current(INITIAL_WIDTH, 0);
+static std::vector<uint8_t> next(INITIAL_WIDTH, 0);
+static int centre = INITIAL_WIDTH / 2;
+static int nextGrowStep = INITIAL_WIDTH / 2;
+
+
 static std::ostream& slopeName(std::ostream& stream, const Slope& slope) {
 	if (slope.dx == 0) {
 		return stream << "center";
@@ -27,10 +34,22 @@ static std::ostream& slopeName(std::ostream& stream, const Slope& slope) {
 	return stream << slope.dx << "/" << slope.dy;
 }
 
-static bool getCell(const std::vector<uint8_t>& cells, int index) {
-	if (index < 0 || index >= (int)cells.size())
-		return false;
-	return cells[index] != 0;
+static void growBuffers() {
+	const int oldWidth = static_cast<int>(current.size());
+	const int newWidth = oldWidth * 2;
+	const int newCentre = newWidth / 2;
+	const int offset = newCentre - centre;
+
+	std::vector<uint8_t> newCurrent(newWidth, 0);
+	std::vector<uint8_t> newNext(newWidth, 0);
+
+	std::copy(current.begin(), current.end(), newCurrent.begin() + offset);
+	std::copy(next.begin(), next.end(), newNext.begin() + offset);
+
+	current.swap(newCurrent);
+	next.swap(newNext);
+
+	centre = newCentre;
 }
 
 static void writeAt(short x, short y, const std::string& text) {
@@ -64,25 +83,6 @@ int main(int argc, char* argv[]) {
 		{ 1, 1}
 	};
 
-	std::ofstream csv("output.csv");
-	csv << "step";
-	for (const auto& slope : slopes) {
-		csv << ",";
-		slopeName(csv, slope);
-	}
-	for (const auto& slope : slopes) {
-		csv << ",";
-		slopeName(csv, slope);
-		csv << " byte";
-	}
-	csv << "\n";
-
-	// Large enough to avoid edge effects.
-	const int width = 20000;
-	const int centre = width / 2;
-
-	std::vector<uint8_t> current(width, 0);
-	std::vector<uint8_t> next(width, 0);
 	current[centre] = 1;
 
 	HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -98,18 +98,18 @@ int main(int argc, char* argv[]) {
 	for (int i = 0; i < slopes.size(); ++i) {
 		std::ostringstream name;
 		slopeName(name, slopes[i]);
-		writeAt(8, static_cast<short>(i + 3), name.str());
+		const int x = slopes[i].dx < 0 ? 7 : 8;
+		writeAt(x, static_cast<short>(i + 3), name.str());
 	}
 
 	uint32_t step = 0;
 	while (true) {
 		writeAt(6, 1, std::to_string(step));
-		csv << step;
 
 		for (int i = 0; i < slopes.size(); ++i) {
 			auto& slope = slopes[i];
 			int index = centre + slope.x;
-			bool black = getCell(current, index);
+			bool black = current[index] != 0;
 			if (black) {
 				++slope.blackCount;
 				slope.byte <<= 1;
@@ -118,13 +118,12 @@ int main(int argc, char* argv[]) {
 				++slope.whiteCount;
 				slope.byte = (slope.byte << 1) | 1;
 			}
-			double ratio = (slope.blackCount + slope.whiteCount == 0) ? 0.0 :
-				(static_cast<double>(slope.blackCount) / (slope.blackCount + slope.whiteCount));
+			uint64_t total = static_cast<uint64_t>(slope.blackCount) + slope.whiteCount;
+			double ratio = (total == 0) ? 0.0 : (static_cast<double>(slope.blackCount) / total);
 
 			std::ostringstream value;
 			value << std::fixed << std::setprecision(4) << ratio;
 			writeAt(20, static_cast<short>(i + 3), value.str());
-			csv << "," << ratio;
 
 			if (slope.dx != 0) {
 				slope.accumulator++;
@@ -138,24 +137,26 @@ int main(int argc, char* argv[]) {
 		bool writeByte = ((step + 1) % 8) == 0;
 		for (auto& s : slopes) {
 			if (writeByte) {
-				csv << "," << (int)s.byte;
+				// display byte
 				s.byte = 0;
-			}
-			else {
-				csv << ",";
 			}
 		}
 
-		csv << std::endl;
 		std::fill(next.begin(), next.end(), 0);
 
+		const int width = static_cast<int>(current.size());
 		for (int i = 1; i < width - 1; ++i) {
+			if (current[i - 1]) {
+			}
 			int pattern = (current[i - 1] << 2) | (current[i] << 1) | current[i + 1];
 			next[i] = (rule >> pattern) & 1;
 		}
 		current.swap(next);
-
 		step++;
+		if (step == nextGrowStep) {
+			growBuffers();
+			nextGrowStep = static_cast<int>(current.size()) / 2;
+		}
 	}
 
 	system("cls");
