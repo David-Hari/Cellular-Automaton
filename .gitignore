@@ -30,4 +30,7 @@
 /*.aps
 /ipch
 /Debug
+/Release
 /.vs
+/x64
+*.vcxproj.user
