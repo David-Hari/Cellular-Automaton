@@ -17,28 +17,31 @@ struct Slope {
 	int accumulator = 0;
 	int blackCount = 0;
 	int whiteCount = 0;
-	uint8_t byte = 0;
 };
 
-static const int INITIAL_WIDTH = 255;
+#define findCenter(w) (w / 2)
+#define doubleWidth(w) ((w - 1) * 2) + 1;  // Need to account for center column with equal width on either side
+
+static const int INITIAL_WIDTH = 255;    // 127 on either side + center
 static std::vector<uint8_t> current(INITIAL_WIDTH, 0);
 static std::vector<uint8_t> next(INITIAL_WIDTH, 0);
-static int centre = INITIAL_WIDTH / 2;
-static int nextGrowStep = INITIAL_WIDTH / 2;
+static int center = findCenter(INITIAL_WIDTH);
+static int nextGrowStep = center - 1;
 
 
-static std::ostream& slopeName(std::ostream& stream, const Slope& slope) {
+static std::string slopeName(const Slope& slope) {
 	if (slope.dx == 0) {
-		return stream << "center";
+		return "center";
 	}
-	return stream << slope.dx << "/" << slope.dy;
+	std::ostringstream stream;
+	stream << slope.dx << "/" << slope.dy;
+	return stream.str();
 }
 
 static void growBuffers() {
-	const int oldWidth = static_cast<int>(current.size());
-	const int newWidth = oldWidth * 2;
-	const int newCentre = newWidth / 2;
-	const int offset = newCentre - centre;
+	const int newWidth = doubleWidth(static_cast<int>(current.size()));
+	const int newCentre = findCenter(newWidth);
+	const int offset = newCentre - center;
 
 	std::vector<uint8_t> newCurrent(newWidth, 0);
 	std::vector<uint8_t> newNext(newWidth, 0);
@@ -49,7 +52,7 @@ static void growBuffers() {
 	current.swap(newCurrent);
 	next.swap(newNext);
 
-	centre = newCentre;
+	center = newCentre;
 }
 
 static void writeAt(short x, short y, const std::string& text) {
@@ -83,7 +86,6 @@ int main(int argc, char* argv[]) {
 		{ 1, 1}
 	};
 
-	current[centre] = 1;
 
 	HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_CURSOR_INFO cursor;
@@ -96,33 +98,31 @@ int main(int argc, char* argv[]) {
 	writeAt(0, 1, "Step:");
 	writeAt(0, 2, "Slope (horz/vert)   Proportion of black / total cells");
 	for (int i = 0; i < slopes.size(); ++i) {
-		std::ostringstream name;
-		slopeName(name, slopes[i]);
 		const int x = slopes[i].dx < 0 ? 7 : 8;
-		writeAt(x, static_cast<short>(i + 3), name.str());
+		writeAt(x, static_cast<short>(i + 3), slopeName(slopes[i]));
 	}
 
-	uint32_t step = 0;
+	// Initial state
+	current[center] = 1;
+	uint32_t step = 1;
 	while (true) {
 		writeAt(6, 1, std::to_string(step));
 
 		for (int i = 0; i < slopes.size(); ++i) {
 			auto& slope = slopes[i];
-			int index = centre + slope.x;
+			int index = center + slope.x;
 			bool black = current[index] != 0;
 			if (black) {
 				++slope.blackCount;
-				slope.byte <<= 1;
 			}
 			else {
 				++slope.whiteCount;
-				slope.byte = (slope.byte << 1) | 1;
 			}
 			uint64_t total = static_cast<uint64_t>(slope.blackCount) + slope.whiteCount;
 			double ratio = (total == 0) ? 0.0 : (static_cast<double>(slope.blackCount) / total);
 
 			std::ostringstream value;
-			value << std::fixed << std::setprecision(4) << ratio;
+			value << std::fixed << std::setprecision(8) << ratio;
 			writeAt(20, static_cast<short>(i + 3), value.str());
 
 			if (slope.dx != 0) {
@@ -134,29 +134,19 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
-		bool writeByte = ((step + 1) % 8) == 0;
-		for (auto& s : slopes) {
-			if (writeByte) {
-				// display byte
-				s.byte = 0;
-			}
-		}
-
 		std::fill(next.begin(), next.end(), 0);
 
 		const int width = static_cast<int>(current.size());
 		for (int i = 1; i < width - 1; ++i) {
-			if (current[i - 1]) {
-			}
 			int pattern = (current[i - 1] << 2) | (current[i] << 1) | current[i + 1];
 			next[i] = (rule >> pattern) & 1;
 		}
 		current.swap(next);
-		step++;
 		if (step == nextGrowStep) {
 			growBuffers();
-			nextGrowStep = static_cast<int>(current.size()) / 2;
+			nextGrowStep = center - 1;
 		}
+		step++;
 	}
 
 	system("cls");
