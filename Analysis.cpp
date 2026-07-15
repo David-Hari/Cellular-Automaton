@@ -19,8 +19,8 @@ struct Slope {
 	int whiteCount = 0;
 };
 
-#define findCenter(w) (w / 2)
-#define doubleWidth(w) ((w - 1) * 2) + 1  // Need to account for center column with equal width on either side
+constexpr int findCenter(int w) { return w / 2; }
+constexpr int doubleWidth(int w) { return ((w - 1) * 2) + 1; } // Need to account for center column with equal width on either side
 
 static const int INITIAL_WIDTH = 255;    // 127 on either side + center
 static std::vector<uint8_t> current(INITIAL_WIDTH, 0);
