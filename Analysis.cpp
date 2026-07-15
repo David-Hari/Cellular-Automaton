@@ -20,7 +20,7 @@ struct Slope {
 };
 
 #define findCenter(w) (w / 2)
-#define doubleWidth(w) ((w - 1) * 2) + 1;  // Need to account for center column with equal width on either side
+#define doubleWidth(w) ((w - 1) * 2) + 1  // Need to account for center column with equal width on either side
 
 static const int INITIAL_WIDTH = 255;    // 127 on either side + center
 static std::vector<uint8_t> current(INITIAL_WIDTH, 0);
