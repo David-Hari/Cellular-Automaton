@@ -149,9 +149,5 @@ int main(int argc, char* argv[]) {
 		step++;
 	}
 
-	system("cls");
-	cursor.bVisible = TRUE;
-	SetConsoleCursorInfo(console, &cursor);
-
 	return 0;
 }
